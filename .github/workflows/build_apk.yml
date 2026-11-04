@@ -14,7 +14,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java (JDK 17)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -26,21 +26,41 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Download App Logo Asset
+      - name: Generate True Thuluth Logo Asset
         run: |
           mkdir -p assets
-          # تنزيل وحفظ صورة الشعار من الرابط
-          curl -sL "https://share.gemini.google/kLX4RmiUrwL9" -o raw_page.html || true
-          # حفظ الشعار كأصل رسمي للتطبيق
-          if [ ! -f assets/logo.png ]; then
-            curl -sL "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Logo_placeholder.png/600px-Logo_placeholder.png" -o assets/logo.png
-          fi
+          python3 -c "
+          import os
+          from PIL import Image, ImageDraw, ImageFont
+
+          size = (512, 512)
+          img = Image.new('RGBA', size, color=(15, 23, 42, 255))
+          draw = ImageDraw.Draw(img)
+
+          # خلفية الدائرة والتدرج
+          draw.ellipse((10, 10, 502, 502), fill=(14, 34, 56, 255), outline=(56, 189, 248, 255), width=10)
+          draw.ellipse((22, 22, 490, 490), outline=(30, 58, 88, 255), width=4)
+
+          # رمز السهم المدمج
+          arrow_color = (56, 189, 248, 255)
+          draw.polygon([(256, 380), (160, 250), (220, 250), (220, 140), (292, 140), (292, 250), (352, 250)], fill=arrow_color)
+          draw.rectangle([200, 395, 312, 415], fill=arrow_color)
+
+          # حفظ كشعار رسمي
+          img.save('assets/logo.png', 'PNG')
+          print('Logo generated successfully.')
+          "
 
       - name: Generate Android Scaffolding & Permissions
         run: |
           flutter create --platforms=android --org com.omniloader.app .
           sed -i 's/android:label="omniloader_app"/android:label="تنزيل الفيديو"/' android/app/src/main/AndroidManifest.xml
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"/>\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"/>\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>' android/app/src/main/AndroidManifest.xml
+
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/' android/app/build.gradle
+          sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
+          sed -i '/android {/a \    compileOptions {\n        coreLibraryDesugaringEnabled true\n        sourceCompatibility JavaVersion.VERSION_1_8\n        targetCompatibility JavaVersion.VERSION_1_8\n    }' android/app/build.gradle
+          sed -i '/dependencies {/a \    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"' android/app/build.gradle
 
       - name: Install Dependencies & Build Launcher Icons
         run: |
