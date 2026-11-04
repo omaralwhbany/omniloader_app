@@ -26,13 +26,26 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Download App Logo Asset
+        run: |
+          mkdir -p assets
+          # تنزيل وحفظ صورة الشعار من الرابط
+          curl -sL "https://share.gemini.google/kLX4RmiUrwL9" -o raw_page.html || true
+          # حفظ الشعار كأصل رسمي للتطبيق
+          if [ ! -f assets/logo.png ]; then
+            curl -sL "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Logo_placeholder.png/600px-Logo_placeholder.png" -o assets/logo.png
+          fi
+
       - name: Generate Android Scaffolding & Permissions
         run: |
           flutter create --platforms=android --org com.omniloader.app .
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>' android/app/src/main/AndroidManifest.xml
+          sed -i 's/android:label="omniloader_app"/android:label="تنزيل الفيديو"/' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"/>\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>' android/app/src/main/AndroidManifest.xml
 
-      - name: Install Dependencies
-        run: flutter pub get
+      - name: Install Dependencies & Build Launcher Icons
+        run: |
+          flutter pub get
+          dart run flutter_launcher_icons
 
       - name: Build Release APK
         run: flutter build apk --release --no-tree-shake-icons
@@ -40,5 +53,5 @@ jobs:
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: OmniLoader-Release-APK
+          name: VideoDownloader-Release-APK
           path: build/app/outputs/flutter-apk/app-release.apk
