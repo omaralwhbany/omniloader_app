@@ -2,6 +2,8 @@ name: Build Release APK
 
 on:
   push:
+    branches: [ main, feature/localization-refactor ]
+  pull_request:
     branches: [ main ]
   workflow_dispatch:
 
@@ -140,6 +142,10 @@ jobs:
 
           print("All Android icons generated successfully.")
           PYICON
+
+      - name: Restore bundled offline font
+        run: |
+          bash scripts/restore_font.sh
 
       - name: Install Dependencies
         run: flutter pub get
