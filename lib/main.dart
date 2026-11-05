@@ -436,7 +436,7 @@ class _MainScreenState extends State<MainScreen> {
         }
 
         opts.add(QualityOption(
-          label: 'صوت فقط (MP3)',
+          label: 'صوت فقط',
           sizeStr: _formatSize(bestAudio.size.totalBytes),
           streamInfo: bestAudio,
           isAudio: true,
