@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:convert';
+import 'dart:async';
+import 'package:background_downloader/background_downloader.dart' as bg;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -18,7 +21,17 @@ void main() async {
       InitializationSettings(android: initializationSettingsAndroid);
 
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
+  await bg.FileDownloader().configure(
+    androidConfig: [(bg.Config.runInForeground, true)],
+  );
+  await bg.FileDownloader().trackTasks();
+  bg.FileDownloader().configureNotification(
+    running: const bg.TaskNotification('جارٍ تنزيل الفيديو', '{filename} • {progress}'),
+    complete: const bg.TaskNotification('اكتمل التنزيل', '{filename}'),
+    error: const bg.TaskNotification('تعذّر التنزيل', '{filename}'),
+    paused: const bg.TaskNotification('التنزيل متوقف مؤقتاً', '{filename}'),
+    progressBar: true,
+  );
   runApp(const OmniLoaderApp());
 }
 
@@ -55,8 +68,9 @@ class OmniLoaderApp extends StatelessWidget {
   }
 }
 
-class DownloadTask {
+class DownloadTaskItem {
   final int id;
+  final String taskId;
   final String title;
   final String qualityLabel;
   final String totalSize;
@@ -64,8 +78,9 @@ class DownloadTask {
   String status;
   String speed;
 
-  DownloadTask({
+  DownloadTaskItem({
     required this.id,
+    required this.taskId,
     required this.title,
     required this.qualityLabel,
     required this.totalSize,
@@ -100,7 +115,9 @@ class _MainScreenState extends State<MainScreen> {
   int _currentTabIndex = 0;
   final TextEditingController _urlController = TextEditingController();
   final YoutubeExplode _yt = YoutubeExplode();
-  final List<DownloadTask> _tasks = [];
+  final List<DownloadTaskItem> _tasks = [];
+  final Map<String, bg.DownloadTask> _backgroundTasks = {};
+  StreamSubscription<bg.TaskUpdate>? _downloadSubscription;
   int _taskCounter = 1;
 
   bool _isLoading = false;
@@ -114,17 +131,114 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _requestAppPermissions();
+    _initializeDownloadEngine();
+  }
+
+  Future<void> _initializeDownloadEngine() async {
+    final downloader = bg.FileDownloader();
+    _downloadSubscription = downloader.updates.listen(_handleDownloadUpdate);
+    await downloader.resumeFromBackground();
+    await _restoreTasks();
+  }
+
+  Future<void> _restoreTasks() async {
+    try {
+      final records = await bg.FileDownloader().database.allRecords();
+      final restored = <DownloadTaskItem>[];
+      for (final dynamic record in records) {
+        final dynamic nativeTask = record.task;
+        if (nativeTask is! bg.DownloadTask) continue;
+        Map<String, dynamic> meta = {};
+        try { meta = Map<String, dynamic>.from(jsonDecode(nativeTask.metaData) as Map); } catch (_) {}
+        final dynamic rawStatus = record.status ?? record.taskStatus;
+        final dynamic rawProgress = record.progress;
+        restored.add(DownloadTaskItem(
+          id: _taskCounter++,
+          taskId: nativeTask.taskId,
+          title: (meta['title'] ?? nativeTask.displayName ?? nativeTask.filename).toString(),
+          qualityLabel: (meta['quality'] ?? 'تنزيل فيديو').toString(),
+          totalSize: (meta['size'] ?? 'غير محدد').toString(),
+          progress: rawProgress is num ? rawProgress.toDouble().clamp(0.0, 1.0) : 0.0,
+          status: _statusText(rawStatus.toString()),
+        ));
+        _backgroundTasks[nativeTask.taskId] = nativeTask;
+      }
+      if (mounted && restored.isNotEmpty) {
+        setState(() { _tasks..clear()..addAll(restored.reversed); });
+      }
+    } catch (e) { debugPrint('Restore downloads: $e'); }
+  }
+
+  String _statusText(String raw) {
+    final value = raw.toLowerCase();
+    if (value.contains('complete')) return 'مكتمل';
+    if (value.contains('pause')) return 'متوقف مؤقتاً';
+    if (value.contains('retry')) return 'بانتظار إعادة المحاولة';
+    if (value.contains('running')) return 'جاري التنزيل';
+    if (value.contains('enqueued')) return 'في قائمة الانتظار';
+    if (value.contains('cancel')) return 'أُلغي';
+    if (value.contains('notfound')) return 'المصدر غير موجود';
+    return 'فشل التنزيل';
+  }
+
+  DownloadTaskItem? _itemForTask(String taskId) {
+    for (final item in _tasks) { if (item.taskId == taskId) return item; }
+    return null;
+  }
+
+  Future<void> _handleDownloadUpdate(bg.TaskUpdate update) async {
+    final item = _itemForTask(update.task.taskId);
+    if (item == null) return;
+    if (update is bg.TaskProgressUpdate) {
+      if (mounted) setState(() {
+        item.progress = update.progress.clamp(0.0, 1.0);
+        if (update.hasNetworkSpeed) item.speed = update.networkSpeedAsString;
+      });
+      return;
+    }
+    if (update is bg.TaskStatusUpdate) {
+      if (mounted) setState(() => item.status = _statusText(update.status.toString()));
+      if (update.status == bg.TaskStatus.complete) {
+        try {
+          await bg.FileDownloader().moveToSharedStorage(
+            update.task as bg.DownloadTask, bg.SharedStorage.downloads, directory: 'vd');
+          if (mounted) setState(() => item.speed = 'تم الحفظ في مجلد Download/vd');
+        } catch (e) {
+          if (mounted) setState(() => item.speed = 'اكتمل، لكن تعذّر النقل إلى Downloads: $e');
+        }
+      } else if (update.status == bg.TaskStatus.failed && mounted) {
+        setState(() => item.speed = 'تعذّر التنزيل؛ يمكنك إعادة المحاولة');
+      }
+    }
+  }
+
+  Future<void> _pauseTask(DownloadTaskItem item) async {
+    final task = _backgroundTasks[item.taskId];
+    if (task == null) return;
+    final paused = await bg.FileDownloader().pause(task);
+    if (!paused && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('هذا المصدر لا يدعم الإيقاف والاستئناف لهذا التنزيل.')));
+    }
+  }
+
+  Future<void> _resumeTask(DownloadTaskItem item) async {
+    final task = _backgroundTasks[item.taskId];
+    if (task == null) return;
+    final resumed = await bg.FileDownloader().resume(task);
+    if (!resumed && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذّر الاستئناف؛ قد لا يدعم المصدر طلبات Range.')));
+    }
   }
 
   Future<void> _requestAppPermissions() async {
     await Permission.notification.request();
-    await Permission.storage.request();
-    await Permission.manageExternalStorage.request();
-    await Permission.ignoreBatteryOptimizations.request();
   }
 
   @override
   void dispose() {
+    _downloadSubscription?.cancel();
     _yt.close();
     _urlController.dispose();
     WakelockPlus.disable();
@@ -282,7 +396,7 @@ class _MainScreenState extends State<MainScreen> {
         });
 
         opts.add(QualityOption(
-          label: 'صوت فقط (MP3)',
+          label: 'صوت فقط',
           sizeStr: _formatSize(audioTotalBytes),
           streamInfo: null,
           isAudio: true,
@@ -304,7 +418,7 @@ class _MainScreenState extends State<MainScreen> {
         final List<QualityOption> opts = [];
         final Map<int, VideoStreamInfo> uniqueHeights = {};
 
-        for (var s in manifest.videoOnly) {
+        for (var s in manifest.muxed) {
           final h = int.tryParse(s.videoResolution.height.toString()) ?? 0;
           if (h > 0 && !uniqueHeights.containsKey(h)) {
             uniqueHeights[h] = s;
@@ -314,7 +428,7 @@ class _MainScreenState extends State<MainScreen> {
         final sortedHeights = uniqueHeights.keys.toList()..sort();
         for (var h in sortedHeights) {
           final vStream = uniqueHeights[h]!;
-          final totalBytes = vStream.size.totalBytes + bestAudio.size.totalBytes;
+          final totalBytes = vStream.size.totalBytes;
           opts.add(QualityOption(
             label: 'دقة ${h}p (${vStream.container.name.toUpperCase()})',
             sizeStr: _formatSize(totalBytes),
@@ -349,92 +463,65 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _startDownload(QualityOption opt) async {
-    await _requestAppPermissions();
-    await WakelockPlus.enable(); // إبقاء المعالج نشطاً لمنع توقف التنزيل بالخلفية
-
-    final task = DownloadTask(
-      id: _taskCounter++,
-      title: _videoTitle ?? 'مقطع فيديو',
-      qualityLabel: opt.label,
-      totalSize: opt.sizeStr,
-    );
-
-    setState(() {
-      _tasks.insert(0, task);
-      _currentTabIndex = 1;
-      _videoTitle = null;
-      _urlController.clear();
-    });
-
-    _executeDownloadWorker(task, opt);
-  }
-
-  Future<void> _executeDownloadWorker(DownloadTask task, QualityOption opt) async {
-    final saveDir = Directory('/storage/emulated/0/Download/vd');
-    if (!saveDir.existsSync()) {
-      saveDir.createSync(recursive: true);
+    if (_rawVideoTarget is! Video) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تنزيل قوائم التشغيل سيُضاف في تحديث لاحق.')));
+      return;
     }
-
     try {
-      final safeTitle = task.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-      final ext = opt.isAudio ? 'mp3' : 'mp4';
-      final filePath = '${saveDir.path}/$safeTitle.$ext';
-
-      if (_rawVideoTarget is Video) {
-        final video = _rawVideoTarget as Video;
-        final manifest = await _yt.videos.streamsClient.getManifest(video.id);
-        final streamInfo = opt.isAudio
-            ? manifest.audioOnly.withHighestBitrate()
+      final video = _rawVideoTarget as Video;
+      final manifest = await _yt.videos.streamsClient.getManifest(video.id);
+      final requestedHeight = int.tryParse(
+        RegExp(r'(\d+)p').firstMatch(opt.label)?.group(1) ?? '');
+      final dynamic streamInfo;
+      if (opt.isAudio) {
+        streamInfo = manifest.audioOnly.withHighestBitrate();
+      } else {
+        final candidates = requestedHeight == null
+            ? manifest.muxed
+            : manifest.muxed.where((s) => s.videoResolution.height == requestedHeight);
+        streamInfo = candidates.isNotEmpty
+            ? candidates.withHighestBitrate()
             : manifest.muxed.withHighestBitrate();
-
-        final stream = _yt.videos.streamsClient.get(streamInfo);
-        final file = File(filePath);
-        final fileStream = file.openWrite();
-
-        int downloaded = 0;
-        final total = streamInfo.size.totalBytes;
-        final stopwatch = Stopwatch()..start();
-
-        await for (final data in stream) {
-          fileStream.add(data);
-          downloaded += data.length;
-
-          if (stopwatch.elapsedMilliseconds >= 500) {
-            final speedBytesPerSec = downloaded / (stopwatch.elapsedMilliseconds / 1000);
-            final currentProgress = total > 0 ? (downloaded / total) : 0.0;
-            final pct = (currentProgress * 100).toInt();
-
-            setState(() {
-              task.progress = currentProgress;
-              task.speed = "${(speedBytesPerSec / (1024 * 1024)).toStringAsFixed(2)} م.ب/ث";
-            });
-
-            _updateNotification(task.id, task.title, pct, false);
-            stopwatch.reset();
-            downloaded = 0;
-          }
-        }
-
-        await fileStream.flush();
-        await fileStream.close();
-
-        setState(() {
-          task.progress = 1.0;
-          task.status = 'مكتمل';
-          task.speed = 'تم الحفظ في /Download/vd';
-        });
-
-        _updateNotification(task.id, task.title, 100, true);
       }
-    } catch (e) {
+      final title = _videoTitle ?? video.title;
+      final safeTitle = title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
+      final rawExtension = streamInfo.container.name.toLowerCase();
+      final extension = rawExtension == 'mp4' || rawExtension == 'webm' ? rawExtension : 'bin';
+      final taskId = 'omni_${DateTime.now().millisecondsSinceEpoch}_$_taskCounter';
+      final item = DownloadTaskItem(
+        id: _taskCounter++, taskId: taskId, title: title,
+        qualityLabel: opt.label, totalSize: opt.sizeStr);
+      final nativeTask = bg.DownloadTask(
+        taskId: taskId,
+        url: streamInfo.url.toString(),
+        filename: '$safeTitle.$extension',
+        directory: 'vd',
+        baseDirectory: bg.BaseDirectory.applicationDocuments,
+        displayName: title,
+        metaData: jsonEncode({
+          'title': title, 'quality': opt.label, 'size': opt.sizeStr,
+          'videoId': video.id.value,
+        }),
+        updates: bg.Updates.statusAndProgress,
+        allowPause: true,
+        retries: 5,
+      );
+      _backgroundTasks[taskId] = nativeTask;
       setState(() {
-        task.status = 'فشل التنزيل';
-        task.speed = e.toString();
+        _tasks.insert(0, item);
+        _currentTabIndex = 1;
+        _videoTitle = null;
+        _urlController.clear();
       });
-    } finally {
-      if (_tasks.every((t) => t.status == 'مكتمل' || t.status == 'فشل التنزيل')) {
-        WakelockPlus.disable();
-      }
+      final enqueued = await bg.FileDownloader().enqueue(nativeTask);
+      if (!enqueued && mounted) setState(() {
+        item.status = 'فشل التنزيل';
+        item.speed = 'تعذّر إضافة المهمة إلى قائمة التنزيل.';
+      });
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذّر بدء التنزيل: $e'), backgroundColor: Colors.red));
     }
   }
 
@@ -616,6 +703,18 @@ class _MainScreenState extends State<MainScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  if (task.status == 'جاري التنزيل' || task.status == 'في قائمة الانتظار' || task.status == 'بانتظار إعادة المحاولة')
+                    IconButton(
+                      tooltip: 'إيقاف مؤقت',
+                      onPressed: () => _pauseTask(task),
+                      icon: const Icon(Icons.pause_circle_outline, color: Color(0xFF38BDF8)),
+                    )
+                  else if (task.status == 'متوقف مؤقتاً')
+                    IconButton(
+                      tooltip: 'استئناف',
+                      onPressed: () => _resumeTask(task),
+                      icon: const Icon(Icons.play_circle_outline, color: Colors.green),
+                    ),
                 ],
               ),
               const SizedBox(height: 6),
