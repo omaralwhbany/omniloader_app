@@ -14,51 +14,99 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java (JDK 17)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
       - name: Setup Flutter SDK
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.3'
-          channel: 'stable'
+          channel: stable
           cache: true
 
       - name: Generate Android Scaffolding & Configure Settings
         run: |
           flutter create --platforms=android --org com.omniloader.app .
 
-          # ضبط اسم التطبيق والأذونات
           sed -i 's/android:label="omniloader_app"/android:label="تنزيل الفيديو"/' android/app/src/main/AndroidManifest.xml
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"/>\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>' android/app/src/main/AndroidManifest.xml
 
+          sed -i '/<application/i \
+              <uses-permission android:name="android.permission.INTERNET"/>\
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\
+              <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>\
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\
+              <uses-permission android:name="android.permission.WAKE_LOCK"/>\
+              <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>' android/app/src/main/AndroidManifest.xml
 
-          # ضبط android/app/build.gradle
-          python3 -c "
+          python3 <<'PY'
+          import re
+
           path = 'android/app/build.gradle'
+
           with open(path, 'r') as f:
               c = f.read()
 
-          c = c.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 34')
-          c = c.replace('minSdk = flutter.minSdkVersion', 'minSdk = 21')
-          c = c.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 21')
+          c = c.replace(
+              'compileSdk = flutter.compileSdkVersion',
+              'compileSdk = 34'
+          )
+
+          c = c.replace(
+              'minSdk = flutter.minSdkVersion',
+              'minSdk = 21'
+          )
+
+          c = c.replace(
+              'minSdkVersion flutter.minSdkVersion',
+              'minSdkVersion 21'
+          )
 
           if 'multiDexEnabled' not in c:
-              c = c.replace('defaultConfig {', 'defaultConfig {\n        multiDexEnabled true')
+              c = c.replace(
+                  'defaultConfig {',
+                  'defaultConfig {\n        multiDexEnabled true',
+                  1
+              )
 
-          if 'compileOptions {' in c:
-              c = c.replace('compileOptions {', 'compileOptions {\n        coreLibraryDesugaringEnabled true')
+          if 'coreLibraryDesugaringEnabled' not in c:
+              c = c.replace(
+                  'compileOptions {',
+                  'compileOptions {\n        coreLibraryDesugaringEnabled true',
+                  1
+              )
 
-          if 'dependencies {' in c:
-              c = c.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring \"com.android.tools:desugar_jdk_libs:2.0.4\"')
+          if 'coreLibraryDesugaring ' not in c:
+              dependency = """
+          dependencies {
+              coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+          }
+          """
+
+              if re.search(r'^\s*dependencies\s*\{', c, re.M):
+                  c = re.sub(
+                      r'(^\s*dependencies\s*\{)',
+                      r"\1\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'",
+                      c,
+                      count=1,
+                      flags=re.M
+                  )
+              else:
+                  c += '\n' + dependency
 
           with open(path, 'w') as f:
               f.write(c)
-          "
 
-          # نسخ الأيقونة الرسمية
+          print("Gradle configuration completed.")
+          print("Core library desugaring dependency verified.")
+          PY
+
+          echo "========== GRADLE CONFIGURATION =========="
+          cat android/app/build.gradle
+
           for dir in android/app/src/main/res/mipmap-*; do
             if [ -d "$dir" ]; then
               cp -f assets/logo.png "$dir/ic_launcher.png" || true
