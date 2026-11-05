@@ -26,30 +26,23 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Generate Android Scaffolding & Fix Subprojects SDK
+      - name: Generate Android Scaffolding & Configure Settings
         run: |
           flutter create --platforms=android --org com.omniloader.app .
 
-          # ضبط اسم التطبيق والصلاحيات
+          # ضبط اسم التطبيق والأذونات
           sed -i 's/android:label="omniloader_app"/android:label="تنزيل الفيديو"/' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"/>\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>' android/app/src/main/AndroidManifest.xml
 
-          # حل مشكلة compileSdkVersion لجميع موديولات Gradle التابعة
+          # تعديل android/build.gradle بدون afterEvaluate لتفادي الخطأ
           cat << 'GROOVY' >> android/build.gradle
 
           subprojects {
-              afterEvaluate { project ->
-                  if (project.hasProperty('android')) {
-                      project.android {
-                          compileSdkVersion 34
-                          buildToolsVersion "34.0.0"
-                      }
-                  }
-              }
+              project.evaluationDependsOn(':app')
           }
           GROOVY
 
-          # تهيئة android/app/build.gradle لـ multiDex و desugaring
+          # تهيئة android/app/build.gradle لـ multiDex و desugaring و compileSdk 34
           python3 -c "
           path = 'android/app/build.gradle'
           with open(path, 'r') as f:
@@ -72,7 +65,7 @@ jobs:
               f.write(c)
           "
 
-          # حقن الشعار كأيقونة في كافة المجلدات
+          # نسخ صورتك الأصلية كأيقونة في كافة المجلدات
           for dir in android/app/src/main/res/mipmap-*; do
             if [ -d "$dir" ]; then
               cp -f assets/logo.png "$dir/ic_launcher.png" || true
