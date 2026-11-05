@@ -3,7 +3,8 @@ import 'models/download_task.dart';
 import 'models/quality_option.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'l10n/generated/app_localizations.dart';
+import 'l10n/locale_controller.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -21,44 +22,45 @@ void main() async {
 
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
-  runApp(const OmniLoaderApp());
+  final localeController = LocaleController();
+  await localeController.load();
+  runApp(OmniLoaderApp(localeController: localeController));
 }
 
 class OmniLoaderApp extends StatelessWidget {
-  const OmniLoaderApp({super.key});
+  final LocaleController localeController;
+  const OmniLoaderApp({super.key, required this.localeController});
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = GoogleFonts.arefRuqaaTextTheme(ThemeData.dark().textTheme);
-
-    return MaterialApp(
-      title: 'تنزيل الفيديو',
-      debugShowCheckedModeBanner: false,
-      locale: const Locale('ar', 'AE'),
-      supportedLocales: const [
-        Locale('ar', 'AE'),
-        Locale('en', 'US'),
-      ],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF0F172A),
-        textTheme: textTheme,
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF38BDF8),
-          surface: Color(0xFF1E293B),
-        ),
-      ),
-      home: const MainScreen(),
+    return AnimatedBuilder(
+      animation: localeController,
+      builder: (context, _) {
+        final baseTheme = ThemeData.dark();
+        return MaterialApp(
+          title: 'OmniLoader',
+          debugShowCheckedModeBanner: false,
+          locale: localeController.locale,
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          theme: baseTheme.copyWith(
+            scaffoldBackgroundColor: const Color(0xFF0F172A),
+            textTheme: baseTheme.textTheme.apply(fontFamily: 'ArefRuqaa'),
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF38BDF8),
+              surface: Color(0xFF1E293B),
+            ),
+          ),
+          home: MainScreen(localeController: localeController),
+        );
+      },
     );
   }
 }
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final LocaleController localeController;
+  const MainScreen({super.key, required this.localeController});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -100,8 +102,9 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   String _formatSize(int bytes) {
-    if (bytes <= 0) return "غير محدد";
-    const suffixes = ["بايت", "ك.ب", "م.ب", "ج.ب", "ت.ب"];
+    final l10n = AppLocalizations.of(context)!;
+    if (bytes <= 0) return l10n.unknown;
+    final suffixes = [l10n.bytes, l10n.kilobytes, l10n.megabytes, l10n.gigabytes, l10n.terabytes];
     var i = 0;
     double dBytes = bytes.toDouble();
     while (dBytes >= 1024 && i < suffixes.length - 1) {
@@ -114,8 +117,8 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _updateNotification(int id, String title, int progress, bool isFinished) async {
     final AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
       'downloads_channel',
-      'تنزيل الفيديوهات',
-      channelDescription: 'إشعارات تقدم التنزيل في الخلفية',
+      AppLocalizations.of(context)!.downloadingVideos,
+      channelDescription: AppLocalizations.of(context)!.notificationDescription,
       importance: Importance.low,
       priority: Priority.low,
       showProgress: !isFinished,
@@ -130,14 +133,14 @@ class _MainScreenState extends State<MainScreen> {
     if (isFinished) {
       await flutterLocalNotificationsPlugin.show(
         id,
-        'اكتمل التنزيل بنجاح',
+        AppLocalizations.of(context)!.downloadCompleted,
         title,
         platformChannelSpecifics,
       );
     } else {
       await flutterLocalNotificationsPlugin.show(
         id,
-        'جاري التنزيل: $progress%',
+        AppLocalizations.of(context)!.notificationProgress(progress),
         title,
         platformChannelSpecifics,
       );
@@ -171,12 +174,12 @@ class _MainScreenState extends State<MainScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'تنزيل الفيديو',
+              AppLocalizations.of(context)!.appTitle,
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8)),
             ),
             const SizedBox(height: 6),
             const Text(
-              'الإصدار 1.0.0',
+              AppLocalizations.of(context)!.version,
               style: TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const Divider(color: Color(0xFF334155), height: 26),
@@ -198,7 +201,7 @@ class _MainScreenState extends State<MainScreen> {
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              child: const Text('إغلاق', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              child: Text(AppLocalizations.of(context)!.close, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             )
           ],
         ),
@@ -242,7 +245,7 @@ class _MainScreenState extends State<MainScreen> {
         heightTotals.forEach((h, bytes) {
           if (bytes > 0) {
             opts.add(QualityOption(
-              label: 'دقة ${h}p كحد أقصى',
+              label: AppLocalizations.of(context)!.playlistMaxQuality(h),
               sizeStr: _formatSize(bytes),
               streamInfo: null,
             ));
@@ -250,7 +253,7 @@ class _MainScreenState extends State<MainScreen> {
         });
 
         opts.add(QualityOption(
-          label: 'صوت فقط (MP3)',
+          label: AppLocalizations.of(context)!.audioOnly + ' (MP3)',
           sizeStr: _formatSize(audioTotalBytes),
           streamInfo: null,
           isAudio: true,
@@ -259,7 +262,7 @@ class _MainScreenState extends State<MainScreen> {
         setState(() {
           _videoTitle = playlist.title;
           _thumbnailUrl = playlist.thumbnails.highResUrl;
-          _itemInfo = 'قائمة تشغيل (${videos.length} مقطع)';
+          _itemInfo = AppLocalizations.of(context)!.playlistInfo(videos.length);
           _options = opts;
           _rawVideoTarget = videos;
           _isLoading = false;
@@ -284,7 +287,7 @@ class _MainScreenState extends State<MainScreen> {
           final vStream = uniqueHeights[h]!;
           final totalBytes = vStream.size.totalBytes + bestAudio.size.totalBytes;
           opts.add(QualityOption(
-            label: 'دقة ${h}p (${vStream.container.name.toUpperCase()})',
+            label: AppLocalizations.of(context)!.videoQuality(h, vStream.container.name.toUpperCase()),
             sizeStr: _formatSize(totalBytes),
             streamInfo: vStream,
           ));
@@ -300,7 +303,7 @@ class _MainScreenState extends State<MainScreen> {
         setState(() {
           _videoTitle = video.title;
           _thumbnailUrl = video.thumbnails.highResUrl;
-          _itemInfo = 'مقطع فيديو (${video.duration?.inMinutes ?? 0} دقيقة)';
+          _itemInfo = AppLocalizations.of(context)!.videoInfo(video.duration?.inMinutes ?? 0);
           _options = opts;
           _rawVideoTarget = video;
           _isLoading = false;
@@ -310,7 +313,7 @@ class _MainScreenState extends State<MainScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('حدث خطأ: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(AppLocalizations.of(context)!.error(e.toString())), backgroundColor: Colors.red),
         );
       }
     }
@@ -322,7 +325,7 @@ class _MainScreenState extends State<MainScreen> {
 
     final task = DownloadTask(
       id: _taskCounter++,
-      title: _videoTitle ?? 'مقطع فيديو',
+      title: _videoTitle ?? AppLocalizations.of(context)!.appTitle,
       qualityLabel: opt.label,
       totalSize: opt.sizeStr,
     );
@@ -388,15 +391,15 @@ class _MainScreenState extends State<MainScreen> {
 
         setState(() {
           task.progress = 1.0;
-          task.status = 'مكتمل';
-          task.speed = 'تم الحفظ في /Download/vd';
+          task.status = AppLocalizations.of(context)!.completed;
+          task.speed = AppLocalizations.of(context)!.savedTo;
         });
 
         _updateNotification(task.id, task.title, 100, true);
       }
     } catch (e) {
       setState(() {
-        task.status = 'فشل التنزيل';
+        task.status = AppLocalizations.of(context)!.failed;
         task.speed = e.toString();
       });
     } finally {
@@ -423,7 +426,7 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            const Text('تنزيل الفيديو', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19)),
+            Text(AppLocalizations.of(context)!.appTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19)),
           ],
         ),
         backgroundColor: const Color(0xFF1E293B),
@@ -432,7 +435,16 @@ class _MainScreenState extends State<MainScreen> {
           IconButton(
             icon: const Icon(Icons.info_outline, color: Color(0xFF38BDF8)),
             onPressed: _showAboutDialog,
-            tooltip: 'حول التطبيق',
+            tooltip: AppLocalizations.of(context)!.about,
+          ),
+          PopupMenuButton<String>(
+            tooltip: AppLocalizations.of(context)!.language,
+            icon: const Icon(Icons.language, color: Color(0xFF38BDF8)),
+            onSelected: (code) => localeController.setLocale(Locale(code)),
+            itemBuilder: (context) => [
+              PopupMenuItem(value: 'ar', child: Text(AppLocalizations.of(context)!.arabic)),
+              PopupMenuItem(value: 'en', child: Text(AppLocalizations.of(context)!.english)),
+            ],
           ),
         ],
       ),
@@ -444,8 +456,8 @@ class _MainScreenState extends State<MainScreen> {
         unselectedItemColor: Colors.grey,
         onTap: (index) => setState(() => _currentTabIndex = index),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.download), label: 'تنزيل جديد'),
-          BottomNavigationBarItem(icon: Icon(Icons.list_alt), label: 'قائمة التنزيلات'),
+          BottomNavigationBarItem(icon: Icon(Icons.download), label: AppLocalizations.of(context)!.newDownload),
+          BottomNavigationBarItem(icon: Icon(Icons.list_alt), label: AppLocalizations.of(context)!.downloadList),
         ],
       ),
     );
@@ -463,7 +475,7 @@ class _MainScreenState extends State<MainScreen> {
                 child: TextField(
                   controller: _urlController,
                   decoration: InputDecoration(
-                    hintText: 'الصق رابط الفيديو أو قائمة التشغيل...',
+                    hintText: AppLocalizations.of(context)!.pasteUrl,
                     filled: true,
                     fillColor: const Color(0xFF1E293B),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -527,7 +539,7 @@ class _MainScreenState extends State<MainScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text('اختر الدقة والحجم المطلوب:', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 14, fontWeight: FontWeight.bold)),
+                  Text(AppLocalizations.of(context)!.selectQuality, style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 14, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   ..._options.map((opt) => Card(
                         color: const Color(0xFF0F172A),
@@ -551,7 +563,7 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildTasksTab() {
     if (_tasks.isEmpty) {
-      return const Center(child: Text('لا توجد عمليات تنزيل نشطة', style: TextStyle(color: Colors.grey, fontSize: 16)));
+      return Center(child: Text(AppLocalizations.of(context)!.noActiveDownloads, style: const TextStyle(color: Colors.grey, fontSize: 16)));
     }
 
     return ListView.builder(
@@ -587,7 +599,7 @@ class _MainScreenState extends State<MainScreen> {
                 ],
               ),
               const SizedBox(height: 6),
-              Text('${task.qualityLabel} • الحجم: ${task.totalSize}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              Text('${task.qualityLabel} • ${AppLocalizations.of(context)!.sizeLabel(task.totalSize)}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
               const SizedBox(height: 8),
               LinearProgressIndicator(
                 value: task.progress,
