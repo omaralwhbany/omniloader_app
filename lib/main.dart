@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:convert';
 import 'dart:async';
 import 'package:background_downloader/background_downloader.dart' as bg;
@@ -7,20 +6,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/launcher_icon');
-  const InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
-
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
   await bg.FileDownloader().configure(
     androidConfig: [(bg.Config.runInForeground, true)],
   );
@@ -256,38 +245,6 @@ class _MainScreenState extends State<MainScreen> {
     return "${dBytes.toStringAsFixed(2)} ${suffixes[i]}";
   }
 
-  Future<void> _updateNotification(int id, String title, int progress, bool isFinished) async {
-    final AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
-      'downloads_channel',
-      'تنزيل الفيديوهات',
-      channelDescription: 'إشعارات تقدم التنزيل في الخلفية',
-      importance: Importance.low,
-      priority: Priority.low,
-      showProgress: !isFinished,
-      maxProgress: 100,
-      progress: progress,
-      ongoing: !isFinished,
-      autoCancel: isFinished,
-      icon: '@mipmap/launcher_icon',
-    );
-    final NotificationDetails platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
-
-    if (isFinished) {
-      await flutterLocalNotificationsPlugin.show(
-        id,
-        'اكتمل التنزيل بنجاح',
-        title,
-        platformChannelSpecifics,
-      );
-    } else {
-      await flutterLocalNotificationsPlugin.show(
-        id,
-        'جاري التنزيل: $progress%',
-        title,
-        platformChannelSpecifics,
-      );
-    }
-  }
 
   void _showAboutDialog() {
     showDialog(
@@ -470,6 +427,9 @@ class _MainScreenState extends State<MainScreen> {
     try {
       final video = _rawVideoTarget as Video;
       final manifest = await _yt.videos.streamsClient.getManifest(video.id);
+      if (!opt.isAudio && manifest.muxed.isEmpty) {
+        throw Exception('لا يوفر هذا الفيديو مساراً مدمجاً للصوت والصورة.');
+      }
       final requestedHeight = int.tryParse(
         RegExp(r'(\d+)p').firstMatch(opt.label)?.group(1) ?? '');
       final dynamic streamInfo;
