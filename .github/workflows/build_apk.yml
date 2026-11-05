@@ -2,7 +2,7 @@ name: Build Release APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feature/background-download-manager ]
   workflow_dispatch:
 
 jobs:
@@ -38,76 +38,47 @@ jobs:
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\
               <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>\
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>\
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\
               <uses-permission android:name="android.permission.WAKE_LOCK"/>\
               <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>' android/app/src/main/AndroidManifest.xml
+
+          sed -i '/<application>/a \
+              <service android:name="androidx.work.impl.foreground.SystemForegroundService" android:foregroundServiceType="dataSync" tools:node="merge" />' android/app/src/main/AndroidManifest.xml
+
+          sed -i 's/<manifest xmlns:android=/<manifest xmlns:tools="http:\/\/schemas.android.com\/tools" xmlns:android=/' android/app/src/main/AndroidManifest.xml
 
           python3 <<'PY'
           import re
 
           path = 'android/app/build.gradle'
-
           with open(path, 'r') as f:
               c = f.read()
 
-          c = c.replace(
-              'compileSdk = flutter.compileSdkVersion',
-              'compileSdk = 34'
-          )
-
-          c = c.replace(
-              'minSdk = flutter.minSdkVersion',
-              'minSdk = 21'
-          )
-
-          c = c.replace(
-              'minSdkVersion flutter.minSdkVersion',
-              'minSdkVersion 21'
-          )
+          c = c.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 34')
+          c = c.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
+          c = c.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
 
           if 'multiDexEnabled' not in c:
-              c = c.replace(
-                  'defaultConfig {',
-                  'defaultConfig {\n        multiDexEnabled true',
-                  1
-              )
+              c = c.replace('defaultConfig {', 'defaultConfig {\n        multiDexEnabled true', 1)
 
           if 'coreLibraryDesugaringEnabled' not in c:
-              c = c.replace(
-                  'compileOptions {',
-                  'compileOptions {\n        coreLibraryDesugaringEnabled true',
-                  1
-              )
+              c = c.replace('compileOptions {', 'compileOptions {\n        coreLibraryDesugaringEnabled true', 1)
 
           if 'coreLibraryDesugaring ' not in c:
-              dependency = """
-          dependencies {
-              coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
-          }
-          """
-
               if re.search(r'^\s*dependencies\s*\{', c, re.M):
-                  c = re.sub(
-                      r'(^\s*dependencies\s*\{)',
-                      r"\1\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'",
-                      c,
-                      count=1,
-                      flags=re.M
-                  )
+                  c = re.sub(r'(^\s*dependencies\s*\{)',
+                             r"\1\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'",
+                             c, count=1, flags=re.M)
               else:
-                  c += '\n' + dependency
+                  c += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
 
           with open(path, 'w') as f:
               f.write(c)
 
-          print("Gradle configuration completed.")
-          print("Core library desugaring dependency verified.")
+          print("Android Gradle configuration completed.")
           PY
 
-          echo "========== GRADLE CONFIGURATION =========="
-          cat android/app/build.gradle
-
-          # Generate valid Android PNG launcher icons
           python3 -m pip install --break-system-packages Pillow
 
           python3 <<'PYICON'
@@ -115,7 +86,6 @@ jobs:
           import os
 
           image = Image.open("assets/logo.png").convert("RGBA")
-
           sizes = {
               "mipmap-mdpi": 48,
               "mipmap-hdpi": 72,
@@ -123,22 +93,12 @@ jobs:
               "mipmap-xxhdpi": 144,
               "mipmap-xxxhdpi": 192,
           }
-
           for folder, size in sizes.items():
               path = f"android/app/src/main/res/{folder}"
               os.makedirs(path, exist_ok=True)
-
-              icon = image.resize(
-                  (size, size),
-                  Image.Resampling.LANCZOS
-              )
-
-              icon.save(
-                  f"{path}/ic_launcher.png",
-                  format="PNG"
-              )
-
-          print("All Android icons generated successfully.")
+              image.resize((size, size), Image.Resampling.LANCZOS).save(
+                  f"{path}/ic_launcher.png", format="PNG")
+          print("Launcher icons generated.")
           PYICON
 
       - name: Install Dependencies
