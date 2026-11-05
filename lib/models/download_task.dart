@@ -13,7 +13,7 @@ class DownloadTask {
     required this.qualityLabel,
     required this.totalSize,
     this.progress = 0.0,
-    this.status = 'جاري التنزيل...',
-    this.speed = '0 ك.ب/ث',
+    required this.status,
+    required this.speed,
   });
 }
