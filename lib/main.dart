@@ -379,7 +379,7 @@ class _MainScreenState extends State<MainScreen> {
 
             setState(() {
               task.progress = currentProgress;
-              task.speed = "${(speedBytesPerSec / (1024 * 1024)).toStringAsFixed(2)} MB/s";
+              task.speed = AppLocalizations.of(context)!.speedMegabytesPerSecond((speedBytesPerSec / (1024 * 1024)).toStringAsFixed(2));
             });
 
             _updateNotification(task.id, task.title, pct, false);
