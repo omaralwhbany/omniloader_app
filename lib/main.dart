@@ -150,7 +150,7 @@ class _MainScreenState extends State<MainScreen> {
         if (nativeTask is! bg.DownloadTask) continue;
         Map<String, dynamic> meta = {};
         try { meta = Map<String, dynamic>.from(jsonDecode(nativeTask.metaData) as Map); } catch (_) {}
-        final dynamic rawStatus = record.status ?? record.taskStatus;
+        final dynamic rawStatus = record.status;
         final dynamic rawProgress = record.progress;
         restored.add(DownloadTaskItem(
           id: _taskCounter++,
@@ -158,7 +158,7 @@ class _MainScreenState extends State<MainScreen> {
           title: (meta['title'] ?? nativeTask.displayName ?? nativeTask.filename).toString(),
           qualityLabel: (meta['quality'] ?? 'تنزيل فيديو').toString(),
           totalSize: (meta['size'] ?? 'غير محدد').toString(),
-          progress: rawProgress is num ? rawProgress.toDouble().clamp(0.0, 1.0) : 0.0,
+          progress: rawProgress is num ? rawProgress.toDouble().clamp(0.0, 1.0).toDouble() : 0.0,
           status: _statusText(rawStatus.toString()),
         ));
         _backgroundTasks[nativeTask.taskId] = nativeTask;
@@ -191,7 +191,7 @@ class _MainScreenState extends State<MainScreen> {
     if (item == null) return;
     if (update is bg.TaskProgressUpdate) {
       if (mounted) setState(() {
-        item.progress = update.progress.clamp(0.0, 1.0);
+        item.progress = update.progress.clamp(0.0, 1.0).toDouble();
         if (update.hasNetworkSpeed) item.speed = update.networkSpeedAsString;
       });
       return;
@@ -241,7 +241,6 @@ class _MainScreenState extends State<MainScreen> {
     _downloadSubscription?.cancel();
     _yt.close();
     _urlController.dispose();
-    WakelockPlus.disable();
     super.dispose();
   }
 
@@ -477,12 +476,12 @@ class _MainScreenState extends State<MainScreen> {
       if (opt.isAudio) {
         streamInfo = manifest.audioOnly.withHighestBitrate();
       } else {
-        final candidates = requestedHeight == null
-            ? manifest.muxed
-            : manifest.muxed.where((s) => s.videoResolution.height == requestedHeight);
-        streamInfo = candidates.isNotEmpty
-            ? candidates.withHighestBitrate()
-            : manifest.muxed.withHighestBitrate();
+        streamInfo = requestedHeight == null
+            ? manifest.muxed.withHighestBitrate()
+            : manifest.muxed.firstWhere(
+                (s) => s.videoResolution.height == requestedHeight,
+                orElse: () => manifest.muxed.withHighestBitrate(),
+              );
       }
       final title = _videoTitle ?? video.title;
       final safeTitle = title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
