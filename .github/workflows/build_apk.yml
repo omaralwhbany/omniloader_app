@@ -34,15 +34,24 @@ jobs:
           sed -i 's/android:label="omniloader_app"/android:label="تنزيل الفيديو"/' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"/>\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>' android/app/src/main/AndroidManifest.xml
 
-          # تعديل android/build.gradle بدون afterEvaluate لتفادي الخطأ
+          # تهيئة android/build.gradle لضبط compileSdkVersion لجميع المشاريع الفرعية
           cat << 'GROOVY' >> android/build.gradle
 
-          subprojects {
-              project.evaluationDependsOn(':app')
+          allprojects {
+              subprojects {
+                  afterEvaluate { subproject ->
+                      if (subproject.hasProperty('android')) {
+                          subproject.android {
+                              compileSdkVersion 34
+                              buildToolsVersion "34.0.0"
+                          }
+                      }
+                  }
+              }
           }
           GROOVY
 
-          # تهيئة android/app/build.gradle لـ multiDex و desugaring و compileSdk 34
+          # ضبط android/app/build.gradle
           python3 -c "
           path = 'android/app/build.gradle'
           with open(path, 'r') as f:
@@ -65,7 +74,7 @@ jobs:
               f.write(c)
           "
 
-          # نسخ صورتك الأصلية كأيقونة في كافة المجلدات
+          # نسخ الأيقونة الرسمية
           for dir in android/app/src/main/res/mipmap-*; do
             if [ -d "$dir" ]; then
               cp -f assets/logo.png "$dir/ic_launcher.png" || true

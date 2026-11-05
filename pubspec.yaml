@@ -19,6 +19,9 @@ dependencies:
   flutter_local_notifications: ^17.2.2
   wakelock_plus: ^1.2.8
 
+dependency_overrides:
+  package_info_plus: 8.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
