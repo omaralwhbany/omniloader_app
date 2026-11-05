@@ -1,0 +1,91 @@
+{
+  "@@locale": "en",
+  "appTitle": "Video Downloader",
+  "about": "About the app",
+  "close": "Close",
+  "version": "Version 1.0.0",
+  "designedBy": "Designed and developed by:\\nOmar Alwhbany",
+  "newDownload": "New download",
+  "downloadList": "Downloads",
+  "pasteUrl": "Paste a video or playlist link...",
+  "search": "Search",
+  "selectQuality": "Choose the desired quality and size:",
+  "playlistMaxQuality": "Up to {height}p",
+  "@playlistMaxQuality": {
+    "placeholders": {
+      "height": {
+        "type": "int"
+      }
+    }
+  },
+  "videoQuality": "{height}p ({container})",
+  "@videoQuality": {
+    "placeholders": {
+      "height": {
+        "type": "int"
+      },
+      "container": {
+        "type": "String"
+      }
+    }
+  },
+  "audioOnly": "Audio only",
+  "unknown": "Unknown",
+  "bytes": "B",
+  "kilobytes": "KB",
+  "megabytes": "MB",
+  "gigabytes": "GB",
+  "terabytes": "TB",
+  "downloading": "Downloading...",
+  "completed": "Completed",
+  "failed": "Download failed",
+  "zeroSpeed": "0 KB/s",
+  "savedTo": "Saved to /Download/vd",
+  "downloadingVideos": "Video downloads",
+  "notificationDescription": "Background download progress notifications",
+  "downloadCompleted": "Download completed successfully",
+  "notificationProgress": "Downloading: {progress}%",
+  "@notificationProgress": {
+    "placeholders": {
+      "progress": {
+        "type": "int"
+      }
+    }
+  },
+  "playlistInfo": "Playlist ({count} videos)",
+  "@playlistInfo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "videoInfo": "Video ({minutes} minutes)",
+  "@videoInfo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "error": "Error: {message}",
+  "@error": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "noActiveDownloads": "No active downloads",
+  "sizeLabel": "Size: {size}",
+  "@sizeLabel": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "language": "Language",
+  "arabic": "العربية",
+  "english": "English"
+}
