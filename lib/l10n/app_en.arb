@@ -87,5 +87,13 @@
   },
   "language": "Language",
   "arabic": "العربية",
-  "english": "English"
+  "english": "English",
+  "speedMegabytesPerSecond": "{speed} MB/s",
+  "@speedMegabytesPerSecond": {
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  }
 }
