@@ -26,15 +26,41 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Ensure Logo Exists
+        run: |
+          mkdir -p assets
+          if [ ! -f assets/logo.png ] || [ ! -s assets/logo.png ]; then
+            python3 -c "
+            import zlib, struct
+            w, h = 512, 512
+            raw = bytearray()
+            for y in range(h):
+                raw.append(0)
+                for x in range(w):
+                    dx, dy = x - 256, y - 256
+                    d2 = dx*dx + dy*dy
+                    if 230*230 <= d2 <= 248*248:
+                        raw.extend([56, 189, 248, 255])
+                    elif d2 < 230*230:
+                        raw.extend([14, 34, 56, 255])
+                    else:
+                        raw.extend([15, 23, 42, 255])
+            compressed = zlib.compress(bytes(raw), level=9)
+            def chunk(tag, data):
+                return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data) & 0xffffffff)
+            png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)) + chunk(b'IDAT', compressed) + chunk(b'IEND', b'')
+            with open('assets/logo.png', 'wb') as f:
+                f.write(png)
+            "
+          fi
+
       - name: Generate Android Scaffolding & Configure Settings
         run: |
           flutter create --platforms=android --org com.omniloader.app .
 
-          # ضبط اسم التطبيق بالعربية والأذونات اللازمة في الخلفية
           sed -i 's/android:label="omniloader_app"/android:label="تنزيل الفيديو"/' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"/>\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>' android/app/src/main/AndroidManifest.xml
 
-          # تهيئة build.gradle لدعم الإشعارات و desugaring بشكل متوافق 100%
           python3 -c "
           path = 'android/app/build.gradle'
           with open(path, 'r') as f:
@@ -57,9 +83,10 @@ jobs:
               f.write(c)
           "
 
-          # حقن صورتك كأيقونة رسمية للتطبيق في كافة المقاسات
           for dir in android/app/src/main/res/mipmap-*; do
-            cp assets/logo.png "$dir/ic_launcher.png"
+            if [ -d "$dir" ]; then
+              cp -f assets/logo.png "$dir/ic_launcher.png" || true
+            fi
           done
 
       - name: Install Dependencies
