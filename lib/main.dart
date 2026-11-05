@@ -173,18 +173,18 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               AppLocalizations.of(context)!.appTitle,
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8)),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               AppLocalizations.of(context)!.version,
               style: TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const Divider(color: Color(0xFF334155), height: 26),
-            const Text(
-              'تصميم وبرمجة:\nعمر الوهباني',
+            Text(
+              AppLocalizations.of(context)!.designedBy,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, height: 1.5),
             ),
@@ -328,6 +328,8 @@ class _MainScreenState extends State<MainScreen> {
       title: _videoTitle ?? AppLocalizations.of(context)!.appTitle,
       qualityLabel: opt.label,
       totalSize: opt.sizeStr,
+      status: AppLocalizations.of(context)!.downloading,
+      speed: AppLocalizations.of(context)!.zeroSpeed,
     );
 
     setState(() {
@@ -377,7 +379,7 @@ class _MainScreenState extends State<MainScreen> {
 
             setState(() {
               task.progress = currentProgress;
-              task.speed = "${(speedBytesPerSec / (1024 * 1024)).toStringAsFixed(2)} م.ب/ث";
+              task.speed = "${(speedBytesPerSec / (1024 * 1024)).toStringAsFixed(2)} MB/s";
             });
 
             _updateNotification(task.id, task.title, pct, false);
@@ -403,7 +405,7 @@ class _MainScreenState extends State<MainScreen> {
         task.speed = e.toString();
       });
     } finally {
-      if (_tasks.every((t) => t.status == 'مكتمل' || t.status == 'فشل التنزيل')) {
+      if (_tasks.every((t) => t.status == AppLocalizations.of(context)!.completed || t.status == AppLocalizations.of(context)!.failed)) {
         WakelockPlus.disable();
       }
     }
@@ -440,7 +442,7 @@ class _MainScreenState extends State<MainScreen> {
           PopupMenuButton<String>(
             tooltip: AppLocalizations.of(context)!.language,
             icon: const Icon(Icons.language, color: Color(0xFF38BDF8)),
-            onSelected: (code) => localeController.setLocale(Locale(code)),
+            onSelected: (code) => widget.localeController.setLocale(Locale(code)),
             itemBuilder: (context) => [
               PopupMenuItem(value: 'ar', child: Text(AppLocalizations.of(context)!.arabic)),
               PopupMenuItem(value: 'en', child: Text(AppLocalizations.of(context)!.english)),
@@ -455,9 +457,9 @@ class _MainScreenState extends State<MainScreen> {
         selectedItemColor: const Color(0xFF38BDF8),
         unselectedItemColor: Colors.grey,
         onTap: (index) => setState(() => _currentTabIndex = index),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.download), label: AppLocalizations.of(context)!.newDownload),
-          BottomNavigationBarItem(icon: Icon(Icons.list_alt), label: AppLocalizations.of(context)!.downloadList),
+        items: [
+          BottomNavigationBarItem(icon: const Icon(Icons.download), label: AppLocalizations.of(context)!.newDownload),
+          BottomNavigationBarItem(icon: const Icon(Icons.list_alt), label: AppLocalizations.of(context)!.downloadList),
         ],
       ),
     );
@@ -591,7 +593,7 @@ class _MainScreenState extends State<MainScreen> {
                   Text(
                     task.status,
                     style: TextStyle(
-                      color: task.status == 'مكتمل' ? Colors.green : const Color(0xFF38BDF8),
+                      color: task.status == AppLocalizations.of(context)!.completed ? Colors.green : const Color(0xFF38BDF8),
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
