@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'models/download_task.dart';
+import 'models/quality_option.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -53,40 +55,6 @@ class OmniLoaderApp extends StatelessWidget {
       home: const MainScreen(),
     );
   }
-}
-
-class DownloadTask {
-  final int id;
-  final String title;
-  final String qualityLabel;
-  final String totalSize;
-  double progress;
-  String status;
-  String speed;
-
-  DownloadTask({
-    required this.id,
-    required this.title,
-    required this.qualityLabel,
-    required this.totalSize,
-    this.progress = 0.0,
-    this.status = 'جاري التنزيل...',
-    this.speed = '0 ك.ب/ث',
-  });
-}
-
-class QualityOption {
-  final String label;
-  final String sizeStr;
-  final dynamic streamInfo;
-  final bool isAudio;
-
-  QualityOption({
-    required this.label,
-    required this.sizeStr,
-    required this.streamInfo,
-    this.isAudio = false,
-  });
 }
 
 class MainScreen extends StatefulWidget {
