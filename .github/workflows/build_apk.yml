@@ -145,8 +145,7 @@ jobs:
 
       - name: Restore bundled offline font
         run: |
-          base64 --decode assets/fonts/ArefRuqaa-Regular.ttf.base64 > assets/fonts/ArefRuqaa-Regular.ttf
-          test -s assets/fonts/ArefRuqaa-Regular.ttf
+          bash scripts/restore_font.sh
 
       - name: Install Dependencies
         run: flutter pub get
