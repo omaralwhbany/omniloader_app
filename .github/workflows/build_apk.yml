@@ -107,13 +107,41 @@ jobs:
           echo "========== GRADLE CONFIGURATION =========="
           cat android/app/build.gradle
 
-          for dir in android/app/src/main/res/mipmap-*; do
-            if [ -d "$dir" ]; then
-              cp -f assets/logo.png "$dir/ic_launcher.png" || true
-            fi
-          done
+          # Generate valid Android PNG launcher icons
+          python3 -m pip install --break-system-packages Pillow
 
-      - name: Install Dependencies
+          python3 <<'PYICON'
+          from PIL import Image
+          import os
+
+          image = Image.open("assets/logo.png").convert("RGBA")
+
+          sizes = {
+              "mipmap-mdpi": 48,
+              "mipmap-hdpi": 72,
+              "mipmap-xhdpi": 96,
+              "mipmap-xxhdpi": 144,
+              "mipmap-xxxhdpi": 192,
+          }
+
+          for folder, size in sizes.items():
+              path = f"android/app/src/main/res/{folder}"
+              os.makedirs(path, exist_ok=True)
+
+              icon = image.resize(
+                  (size, size),
+                  Image.Resampling.LANCZOS
+              )
+
+              icon.save(
+                  f"{path}/ic_launcher.png",
+                  format="PNG"
+              )
+
+          print("All Android icons generated successfully.")
+          PYICON
+
+- name: Install Dependencies
         run: flutter pub get
 
       - name: Build Release APK
