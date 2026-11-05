@@ -141,7 +141,7 @@ jobs:
           print("All Android icons generated successfully.")
           PYICON
 
-- name: Install Dependencies
+      - name: Install Dependencies
         run: flutter pub get
 
       - name: Build Release APK
