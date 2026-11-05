@@ -2,7 +2,7 @@ name: Build Release APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feature/localization-refactor ]
   workflow_dispatch:
 
 jobs:
@@ -140,6 +140,11 @@ jobs:
 
           print("All Android icons generated successfully.")
           PYICON
+
+      - name: Restore bundled offline font
+        run: |
+          base64 --decode assets/fonts/ArefRuqaa-Regular.ttf.base64 > assets/fonts/ArefRuqaa-Regular.ttf
+          test -s assets/fonts/ArefRuqaa-Regular.ttf
 
       - name: Install Dependencies
         run: flutter pub get
