@@ -34,22 +34,6 @@ jobs:
           sed -i 's/android:label="omniloader_app"/android:label="تنزيل الفيديو"/' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"/>\n    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>' android/app/src/main/AndroidManifest.xml
 
-          # تهيئة android/build.gradle لضبط compileSdkVersion لجميع المشاريع الفرعية
-          cat << 'GROOVY' >> android/build.gradle
-
-          allprojects {
-              subprojects {
-                  afterEvaluate { subproject ->
-                      if (subproject.hasProperty('android')) {
-                          subproject.android {
-                              compileSdkVersion 34
-                              buildToolsVersion "34.0.0"
-                          }
-                      }
-                  }
-              }
-          }
-          GROOVY
 
           # ضبط android/app/build.gradle
           python3 -c "
