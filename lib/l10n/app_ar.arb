@@ -1,0 +1,91 @@
+{
+  "@@locale": "ar",
+  "appTitle": "تنزيل الفيديو",
+  "about": "حول التطبيق",
+  "close": "إغلاق",
+  "version": "الإصدار 1.0.0",
+  "designedBy": "تصميم وبرمجة:\\nعمر الوهباني",
+  "newDownload": "تنزيل جديد",
+  "downloadList": "قائمة التنزيلات",
+  "pasteUrl": "الصق رابط الفيديو أو قائمة التشغيل...",
+  "search": "بحث",
+  "selectQuality": "اختر الدقة والحجم المطلوب:",
+  "playlistMaxQuality": "دقة {height}p كحد أقصى",
+  "@playlistMaxQuality": {
+    "placeholders": {
+      "height": {
+        "type": "int"
+      }
+    }
+  },
+  "videoQuality": "دقة {height}p ({container})",
+  "@videoQuality": {
+    "placeholders": {
+      "height": {
+        "type": "int"
+      },
+      "container": {
+        "type": "String"
+      }
+    }
+  },
+  "audioOnly": "صوت فقط",
+  "unknown": "غير محدد",
+  "bytes": "بايت",
+  "kilobytes": "ك.ب",
+  "megabytes": "م.ب",
+  "gigabytes": "ج.ب",
+  "terabytes": "ت.ب",
+  "downloading": "جاري التنزيل...",
+  "completed": "مكتمل",
+  "failed": "فشل التنزيل",
+  "zeroSpeed": "0 ك.ب/ث",
+  "savedTo": "تم الحفظ في /Download/vd",
+  "downloadingVideos": "تنزيل الفيديوهات",
+  "notificationDescription": "إشعارات تقدم التنزيل في الخلفية",
+  "downloadCompleted": "اكتمل التنزيل بنجاح",
+  "notificationProgress": "جاري التنزيل: {progress}%",
+  "@notificationProgress": {
+    "placeholders": {
+      "progress": {
+        "type": "int"
+      }
+    }
+  },
+  "playlistInfo": "قائمة تشغيل ({count} مقطع)",
+  "@playlistInfo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "videoInfo": "مقطع فيديو ({minutes} دقيقة)",
+  "@videoInfo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "error": "حدث خطأ: {message}",
+  "@error": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "noActiveDownloads": "لا توجد عمليات تنزيل نشطة",
+  "sizeLabel": "الحجم: {size}",
+  "@sizeLabel": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "language": "اللغة",
+  "arabic": "العربية",
+  "english": "English"
+}
